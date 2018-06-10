@@ -12,6 +12,9 @@ import tensorflow as tf
 import os, sys, math, random, datetime
 from utils import *
 
+# This turns off the warning message
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('train_file_path', 'data/process.tw', 'training file')
 tf.app.flags.DEFINE_string('sent_lexicon_path', 'data/word-level-supervision',
@@ -36,7 +39,7 @@ def start_demo():
     stop = sample_num - FLAGS.test_sample_num
     data_list, sents_label, sents_len_list, test_list, test_labels, sents_len_test = data_list[:stop], sents_label[:stop], \
         sents_len_list[:stop], data_list[stop:], sents_label[stop:], sents_len_list[stop:]
-    embeddings = tf.Variable(tf.concat(0, [tf.random_uniform([vocabulary_size-1, FLAGS.embedding_size], -1.0, 1.0, seed=0), tf.zeros([1, FLAGS.embedding_size])]))
+    embeddings = tf.Variable(tf.concat(axis=0, values=[tf.random_uniform([vocabulary_size-1, FLAGS.embedding_size], -1.0, 1.0, seed=0), tf.zeros([1, FLAGS.embedding_size])]))
     with tf.name_scope(name="input"):
         sents_inputs = tf.placeholder(tf.int32, shape=[None, max_sent_len])
         sents_labels = tf.placeholder(tf.int32, shape=[None])
@@ -56,7 +59,7 @@ def start_demo():
         sent_y = tf.nn.softmax(tf.matmul(sent_embed, weights)+ biases)
     
     with tf.name_scope(name = "update_filled_embedding"):
-        embed_new = tf.concat(0, [embeddings[:vocabulary_size-1], tf.zeros([1, FLAGS.embedding_size])])
+        embed_new = tf.concat(axis=0, values=[embeddings[:vocabulary_size-1], tf.zeros([1, FLAGS.embedding_size])])
         embed_update = tf.assign(embeddings, embed_new)
         
     with tf.name_scope(name = "acc"):
@@ -74,9 +77,9 @@ def start_demo():
 
     init = tf.global_variables_initializer()
     saver = tf.train.Saver(write_version=tf.train.SaverDef.V2, max_to_keep=50)
-    tf.scalar_summary('accuracy', accuracy)
-    tf.scalar_summary('loss', loss)
-    merged_summary = tf.merge_all_summaries()
+    tf.summary.scalar('accuracy', accuracy)
+    tf.summary.scalar('loss', loss)
+    merged_summary = tf.summary.merge_all()
 
     with tf.Session() as session:
         session.run(init)
@@ -85,7 +88,7 @@ def start_demo():
             os.mkdir(model_path)
         if not os.path.exists(graph_path):
             os.mkdir(graph_path)
-        writer = tf.train.SummaryWriter(graph_path, session.graph)
+        writer = tf.summary.FileWriter(graph_path, session.graph)
         avg_loss, avg_train_acc = 0, 0
         for step in xrange(FLAGS.max_iter_num):
             batch_inputs, batch_labels, sents_index = generate_batch(FLAGS.batch_size, data_list, sents_len_list, sentiment_dict)
